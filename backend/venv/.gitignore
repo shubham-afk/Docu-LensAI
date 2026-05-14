@@ -9,3 +9,19 @@ dist/
 __pycache__/
 .env
 *.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+
+# Django
+db.sqlite3
+
+# VSCode
+.vscode/
+
+# Node
+node_modules/
