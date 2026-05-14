@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import axios from "axios";
 
 // ============================================================================
 // Document Intelligence Dashboard
@@ -17,56 +18,7 @@ const ACCEPTED_EXT = [".pdf", ".doc", ".docx"];
 const MAX_SIZE_MB = 25;
 
 // ---- Mock extraction (replace with API call) -------------------------------
-const mockExtract = (file) =>
-  new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        fileName: file.name,
-        fileSize: file.size,
-        pages: Math.max(1, Math.round(file.size / 80000)),
-        docType: /invoice/i.test(file.name)
-          ? "Invoice"
-          : /contract/i.test(file.name)
-          ? "Contract"
-          : "Report",
-        confidence: 0.94,
-        processingMs: 2410,
-        keyFields: [
-          { label: "Document ID", value: "DOC-2026-00481", confidence: 0.99 },
-          { label: "Issued Date", value: "2026-04-12", confidence: 0.97 },
-          { label: "Due Date", value: "2026-05-12", confidence: 0.96 },
-          { label: "Vendor", value: "Northwind Logistics Ltd.", confidence: 0.93 },
-          { label: "Customer", value: "Apex Manufacturing Co.", confidence: 0.95 },
-          { label: "Total Amount", value: "$48,210.55 USD", confidence: 0.98 },
-          { label: "Tax", value: "$3,856.84", confidence: 0.91 },
-          { label: "Payment Terms", value: "Net 30", confidence: 0.88 },
-        ],
-        tables: [
-          {
-            name: "Line Items",
-            columns: ["Item", "Qty", "Unit Price", "Total"],
-            rows: [
-              ["Freight forwarding — Container A", "2", "$8,400.00", "$16,800.00"],
-              ["Customs clearance fees", "1", "$1,250.00", "$1,250.00"],
-              ["Last-mile delivery", "12", "$220.00", "$2,640.00"],
-              ["Storage (30 days)", "1", "$3,400.00", "$3,400.00"],
-              ["Insurance premium", "1", "$1,120.55", "$1,120.55"],
-            ],
-          },
-        ],
-        entities: [
-          { type: "ORG", text: "Northwind Logistics Ltd.", count: 4 },
-          { type: "ORG", text: "Apex Manufacturing Co.", count: 3 },
-          { type: "MONEY", text: "$48,210.55", count: 2 },
-          { type: "DATE", text: "2026-04-12", count: 1 },
-          { type: "DATE", text: "2026-05-12", count: 1 },
-          { type: "LOCATION", text: "Rotterdam, NL", count: 2 },
-          { type: "LOCATION", text: "Newark, NJ", count: 1 },
-          { type: "PERSON", text: "Helena Ortiz", count: 1 },
-        ],
-      });
-    }, 1800);
-  });
+
 
 // ---- Helpers ---------------------------------------------------------------
 const fmtBytes = (b) => {
@@ -203,11 +155,10 @@ function DropZone({ onFile, error }) {
           handle(e.dataTransfer.files?.[0]);
         }}
         onClick={() => inputRef.current?.click()}
-        className={`group relative cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed bg-base-100 px-8 py-16 text-center transition-all ${
-          drag
+        className={`group relative cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed bg-base-100 px-8 py-16 text-center transition-all ${drag
             ? "border-primary bg-primary/5 scale-[1.01]"
             : "border-base-300 hover:border-primary/60 hover:bg-base-200/40"
-        }`}
+          }`}
       >
         <input
           ref={inputRef}
@@ -325,13 +276,12 @@ function ProcessingView({ file, stage }) {
             return (
               <li key={s.key} className="flex items-center gap-3">
                 <div
-                  className={`grid h-6 w-6 place-items-center rounded-full border ${
-                    done
+                  className={`grid h-6 w-6 place-items-center rounded-full border ${done
                       ? "border-success bg-success text-success-content"
                       : active
-                      ? "border-primary"
-                      : "border-base-300"
-                  }`}
+                        ? "border-primary"
+                        : "border-base-300"
+                    }`}
                 >
                   {done ? (
                     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7" /></svg>
@@ -348,8 +298,8 @@ function ProcessingView({ file, stage }) {
                     active
                       ? "font-medium"
                       : done
-                      ? "text-base-content/60"
-                      : "text-base-content/40"
+                        ? "text-base-content/60"
+                        : "text-base-content/40"
                   }
                 >
                   {s.label}
@@ -658,20 +608,84 @@ export default function App() {
     if (view !== "processing" || !file) return;
     let active = true;
     const run = async () => {
+
       const seq = ["upload", "ocr", "extract", "done"];
+
       for (const s of seq) {
+
         if (!active) return;
+
         setStage(s);
+
         await new Promise((r) => setTimeout(r, 500));
       }
-      const r = await mockExtract(file);
-      if (!active) return;
-      setResult(r);
-      setHistory((h) => [
-        { name: r.fileName, type: r.docType, at: Date.now() },
-        ...h,
-      ].slice(0, 6));
-      setView("results");
+
+      try {
+
+        const formData = new FormData();
+
+        formData.append("file", file);
+
+        const response = await axios.post(
+          "http://127.0.0.1:8000/api/upload/",
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+
+        const data = response.data;
+
+        const resultData = {
+
+          fileName: file.name,
+
+          fileSize: file.size,
+
+          pages: 1,
+
+          docType: "PDF",
+
+          confidence: 0.95,
+
+          processingMs: 2000,
+
+          keyFields: [
+            {
+              label: "Extracted Text",
+              value: data.text,
+              confidence: 0.95,
+            },
+          ],
+
+          tables: [],
+
+          entities: [],
+        };
+
+        setResult(resultData);
+
+        setHistory((h) => [
+          {
+            name: file.name,
+            type: "PDF",
+            at: Date.now(),
+          },
+          ...h,
+        ].slice(0, 6));
+
+        setView("results");
+
+      } catch (error) {
+
+        console.error(error);
+
+        setError("Upload failed");
+
+        setView("upload");
+      }
     };
     run();
     return () => {
