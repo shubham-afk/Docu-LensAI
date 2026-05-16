@@ -1,27 +1,959 @@
+// import { useState, useRef, useCallback, useEffect } from "react";
+// import axios from "axios";
+
+// // ============================================================================
+// // Config
+// // ============================================================================
+
+// const ACCEPTED_EXT = [".pdf", ".doc", ".docx"];
+// const MAX_SIZE_MB = 25;
+
+// // ============================================================================
+// // Helpers
+// // ============================================================================
+
+// const fmtBytes = (b) => {
+//     if (b < 1024) return `${b} B`;
+//     if (b < 1024 ** 2) return `${(b / 1024).toFixed(1)} KB`;
+//     return `${(b / 1024 ** 2).toFixed(2)} MB`;
+// };
+
+// const toCSV = (result) => {
+//     const lines = [];
+
+//     lines.push("# Key Fields");
+//     lines.push("label,value,confidence");
+
+//     result.keyFields.forEach((f) =>
+//         lines.push(`"${f.label}","${f.value}",${f.confidence}`)
+//     );
+
+//     lines.push("");
+//     lines.push("# Entities");
+//     lines.push("type,text,count");
+
+//     result.entities.forEach((e) =>
+//         lines.push(`${e.type},"${e.text}",${e.count}`)
+//     );
+
+//     return lines.join("\n");
+// };
+
+// const download = (filename, content, mime) => {
+//     const blob = new Blob([content], { type: mime });
+
+//     const url = URL.createObjectURL(blob);
+
+//     const a = document.createElement("a");
+
+//     a.href = url;
+
+//     a.download = filename;
+
+//     a.click();
+
+//     URL.revokeObjectURL(url);
+// };
+
+// // ============================================================================
+// // Components
+// // ============================================================================
+
+// function Logo() {
+//     return (
+//         <div className="flex items-center gap-3">
+//             <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-content">
+//                 📄
+//             </div>
+
+//             <div>
+//                 <div className="text-lg font-bold">
+//                     Doculens
+//                 </div>
+
+//                 <div className="text-xs text-base-content/50">
+//                     Enterprise AI Search
+//                 </div>
+//             </div>
+//         </div>
+//     );
+// }
+
+// function DropZone({ onFile, error }) {
+
+//     const inputRef = useRef(null);
+
+//     const handle = (selectedFiles) => {
+
+//         const validFiles = [];
+
+//         for (const file of selectedFiles) {
+
+//             const ext =
+//                 "." + file.name.split(".").pop().toLowerCase();
+
+//             if (!ACCEPTED_EXT.includes(ext)) {
+//                 continue;
+//             }
+
+//             if (
+//                 file.size >
+//                 MAX_SIZE_MB * 1024 * 1024
+//             ) {
+//                 continue;
+//             }
+
+//             validFiles.push(file);
+//         }
+
+//         if (validFiles.length === 0) {
+
+//             onFile(
+//                 null,
+//                 "No valid files selected"
+//             );
+
+//             return;
+//         }
+
+//         onFile(validFiles, null);
+//     };
+
+//     return (
+//         <div>
+
+//             <div
+//                 onClick={() =>
+//                     inputRef.current?.click()
+//                 }
+//                 className="cursor-pointer rounded-2xl border-2 border-dashed border-base-300 bg-base-100 p-16 text-center hover:border-primary"
+//             >
+
+//                 <input
+//                     ref={inputRef}
+//                     type="file"
+//                     multiple
+//                     className="hidden"
+//                     accept={ACCEPTED_EXT.join(",")}
+//                     onChange={(e) =>
+//                         handle(Array.from(e.target.files))
+//                     }
+//                 />
+
+//                 <div className="text-5xl">
+//                     ⬆️
+//                 </div>
+
+//                 <div className="mt-4 text-2xl font-semibold">
+//                     Upload Document
+//                 </div>
+
+//                 <div className="mt-2 text-base-content/60">
+//                     PDF · DOC · DOCX
+//                 </div>
+
+//             </div>
+
+//             {error && (
+
+//                 <div className="alert alert-error mt-4">
+
+//                     <span>{error}</span>
+
+//                 </div>
+//             )}
+//         </div>
+//     );
+// }
+
+// function ProcessingView({ files, stage }) {
+
+//     return (
+
+//         <div className="mx-auto max-w-xl">
+
+//             <div className="card bg-base-100 shadow-xl">
+
+//                 <div className="card-body">
+
+//                     <div className="flex items-center gap-4">
+
+//                         <span className="loading loading-spinner loading-lg"></span>
+
+//                         <div>
+
+//                             <div className="font-semibold">
+
+//                                 {files.length}
+
+//                             </div>
+
+//                             <div className="text-sm text-base-content/60">
+
+//                                 {files.length} files selected
+
+//                             </div>
+
+//                         </div>
+
+//                     </div>
+
+//                     <div className="mt-6">
+
+//                         <progress
+//                             className="progress progress-primary w-full"
+//                         ></progress>
+
+//                         <div className="mt-4 text-center text-lg">
+
+//                             {stage}
+
+//                         </div>
+
+//                     </div>
+
+//                 </div>
+
+//             </div>
+
+//         </div>
+//     );
+// }
+
+// function ResultsView({ result, onReset }) {
+
+//     return (
+
+//         <div className="space-y-6">
+
+//             {/* Header */}
+
+//             <div className="card bg-base-100 shadow-xl">
+
+//                 <div className="card-body">
+
+//                     <div className="flex flex-wrap items-center justify-between gap-4">
+
+//                         <div>
+
+//                             <h2 className="card-title text-2xl">
+
+//                                 {result.fileName}
+
+//                             </h2>
+
+//                             <div className="text-sm text-base-content/60">
+
+//                                 {result.docType} ·
+//                                 {" "}
+//                                 {result.pages} pages ·
+//                                 {" "}
+//                                 {fmtBytes(result.fileSize)}
+
+//                             </div>
+
+//                         </div>
+
+//                         <div className="flex gap-2">
+
+//                             <button
+//                                 className="btn btn-outline btn-sm"
+//                                 onClick={() =>
+//                                     download(
+//                                         "report.json",
+//                                         JSON.stringify(result, null, 2),
+//                                         "application/json"
+//                                     )
+//                                 }
+//                             >
+//                                 Download JSON
+//                             </button>
+
+//                             <button
+//                                 className="btn btn-primary btn-sm"
+//                                 onClick={() =>
+//                                     download(
+//                                         "report.csv",
+//                                         toCSV(result),
+//                                         "text/csv"
+//                                     )
+//                                 }
+//                             >
+//                                 Download CSV
+//                             </button>
+
+//                             <button
+//                                 className="btn btn-ghost btn-sm"
+//                                 onClick={onReset}
+//                             >
+//                                 New Upload
+//                             </button>
+
+//                         </div>
+
+//                     </div>
+
+//                 </div>
+
+//             </div>
+
+//             {/* Stats */}
+
+//             <div className="stats shadow w-full">
+
+//                 <div className="stat">
+
+//                     <div className="stat-title">
+//                         Confidence
+//                     </div>
+
+//                     <div className="stat-value text-primary">
+//                         {Math.round(result.confidence * 100)}%
+//                     </div>
+
+//                 </div>
+
+//                 <div className="stat">
+
+//                     <div className="stat-title">
+//                         Fields
+//                     </div>
+
+//                     <div className="stat-value">
+//                         {result.keyFields.length}
+//                     </div>
+
+//                 </div>
+
+//                 <div className="stat">
+
+//                     <div className="stat-title">
+//                         Entities
+//                     </div>
+
+//                     <div className="stat-value">
+//                         {result.entities.length}
+//                     </div>
+
+//                 </div>
+
+//             </div>
+
+//             {/* Key Fields */}
+
+//             <div className="card bg-base-100 shadow-xl">
+
+//                 <div className="card-body">
+
+//                     <h2 className="card-title">
+
+//                         Extracted Fields
+
+//                     </h2>
+
+//                     <div className="overflow-x-auto">
+
+//                         <table className="table">
+
+//                             <thead>
+
+//                                 <tr>
+
+//                                     <th>Field</th>
+
+//                                     <th>Value</th>
+
+//                                     <th>Confidence</th>
+
+//                                 </tr>
+
+//                             </thead>
+
+//                             <tbody>
+
+//                                 {result.keyFields.map((field) => (
+
+//                                     <tr key={field.label}>
+
+//                                         <td>{field.label}</td>
+
+//                                         <td>{field.value}</td>
+
+//                                         <td>
+
+//                                             {Math.round(
+//                                                 field.confidence * 100
+//                                             )}%
+
+//                                         </td>
+
+//                                     </tr>
+//                                 ))}
+
+//                             </tbody>
+
+//                         </table>
+
+//                     </div>
+
+//                 </div>
+
+//             </div>
+
+//             {/* Entities */}
+
+//             <div className="card bg-base-100 shadow-xl">
+
+//                 <div className="card-body">
+
+//                     <h2 className="card-title">
+
+//                         Entities
+
+//                     </h2>
+
+//                     <div className="flex flex-wrap gap-2">
+
+//                         {result.entities.map((e, index) => (
+
+//                             <div
+//                                 key={index}
+//                                 className="badge badge-primary badge-lg"
+//                             >
+//                                 {e.type}: {e.text}
+//                             </div>
+//                         ))}
+
+//                     </div>
+
+//                 </div>
+
+//             </div>
+
+//         </div>
+//     );
+// }
+
+// // ============================================================================
+// // App
+// // ============================================================================
+
+// export default function App() {
+
+//     const [view, setView] = useState("upload");
+
+//     const [files, setFiles] = useState([]);
+
+//     const [stage, setStage] = useState("Uploading");
+
+//     const [result, setResult] = useState(null);
+
+//     const [error, setError] = useState(null);
+
+//     const [history, setHistory] = useState([]);
+
+//     const [searchQuery, setSearchQuery] = useState("");
+
+//     const [searchResults, setSearchResults] = useState([]);
+
+//     const [searchLoading, setSearchLoading] =
+//         useState(false);
+
+//     const [searchOpen, setSearchOpen] =
+//         useState(false);
+
+//     // ========================================================================
+//     // Upload Handler
+//     // ========================================================================
+
+//     const handleFile = useCallback((selectedFiles, err) => {
+
+//         if (err) {
+//             setError(err);
+//             return;
+//         }
+
+//         setError(null);
+
+//         setFiles(selectedFiles);
+
+//         setView("processing");
+
+//     }, []);
+
+//     // ========================================================================
+//     // Semantic Search
+//     // ========================================================================
+
+//     const handleSemanticSearch = async () => {
+
+//         if (!searchQuery.trim()) return;
+
+//         try {
+
+//             setSearchLoading(true);
+
+//             const response = await axios.post(
+
+//                 "http://127.0.0.1:8000/api/search/",
+
+//                 {
+//                     query: searchQuery,
+//                 }
+//             );
+
+//             console.log(response.data);
+
+//             setSearchResults(
+//                 response.data.results
+//             );
+
+//         } catch (error) {
+
+//             console.error(error);
+
+//         } finally {
+
+//             setSearchLoading(false);
+//         }
+//     };
+
+//     // ========================================================================
+//     // Upload Pipeline
+//     // ========================================================================
+
+//     useEffect(() => {
+
+//         if (
+//             view !== "processing" ||
+//             files.length === 0
+//         )
+//             return;
+
+//         let active = true;
+
+//         const run = async () => {
+
+//             const seq = [
+//                 "Uploading",
+//                 "Running OCR",
+//                 "Generating AI Analysis",
+//                 "Generating Embeddings",
+//                 "Saving Document",
+//             ];
+
+//             for (const s of seq) {
+
+//                 if (!active) return;
+
+//                 setStage(s);
+
+//                 await new Promise((r) =>
+//                     setTimeout(r, 700)
+//                 );
+//             }
+
+//             try {
+
+//                 const formData = new FormData();
+
+//                 files.forEach((file) => {
+
+//                     formData.append(
+//                         "files",
+//                         file
+//                     );
+//                 });
+
+//                 const response = await axios.post(
+
+//                     "http://127.0.0.1:8000/api/upload/",
+
+//                     formData,
+
+//                     {
+//                         headers: {
+//                             "Content-Type":
+//                                 "multipart/form-data",
+//                         },
+//                     }
+//                 );
+
+//                 const data = response.data;
+
+//                 const firstDoc =
+//                     data.documents?.[0];
+
+//                 const resultData = {
+
+//                     fileName:
+//                         firstDoc?.file_name || "Documents",
+
+//                     fileSize: 0,
+
+//                     pages: files.length,
+
+//                     docType: "PDF",
+
+//                     confidence: 0.95,
+
+//                     processingMs: 2000,
+
+//                     keyFields: [
+
+//                         {
+//                             label: "Uploaded Files",
+//                             value: files.length,
+//                             confidence: 0.95,
+//                         },
+
+//                         {
+//                             label: "Summary",
+//                             value:
+//                                 firstDoc?.summary || "N/A",
+//                             confidence: 0.92,
+//                         },
+
+//                         {
+//                             label: "Skills",
+//                             value:
+//                                 firstDoc?.skills?.join(", ")
+//                                 || "N/A",
+//                             confidence: 0.90,
+//                         },
+//                     ],
+
+//                     tables: [],
+
+//                     entities: [],
+//                 };
+
+//                 setResult(resultData);
+
+//                 setHistory((h) => [
+
+//                     ...files.map((file) => ({
+
+//                         name: file.name,
+
+//                         type: "PDF",
+
+//                         at: Date.now(),
+//                     })),
+
+//                     ...h,
+
+//                 ].slice(0, 6));
+
+//                 setView("results");
+
+//             } catch (error) {
+
+//                 console.error(error);
+
+//                 setError("Upload failed");
+
+//                 setView("upload");
+//             }
+//         };
+
+//         run();
+
+//         return () => {
+//             active = false;
+//         };
+
+//     }, [view, files]);
+
+//     // ========================================================================
+//     // Reset
+//     // ========================================================================
+
+//     const reset = () => {
+
+//         setFiles([]);
+
+//         setResult(null);
+
+//         setView("upload");
+//     };
+
+//     // ========================================================================
+//     // UI
+//     // ========================================================================
+
+//     return (
+
+//         <div className="min-h-screen bg-base-200">
+
+//             {/* Navbar */}
+
+//             <div className="border-b border-base-300 bg-base-100">
+
+//                 <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
+
+//                     <Logo />
+
+//                     <div className="flex gap-2">
+
+//                         <button className="btn btn-ghost btn-sm">
+//                             Dashboard
+//                         </button>
+
+//                         <button className="btn btn-ghost btn-sm">
+//                             Documents
+//                         </button>
+
+//                         <button
+//                             className="btn btn-circle btn-primary"
+//                             onClick={() =>
+//                                 setSearchOpen(true)
+//                             }
+//                         >
+//                             🔍
+//                         </button>
+
+//                         <button className="btn btn-primary btn-sm">
+//                             AI Search
+//                         </button>
+
+//                     </div>
+
+//                 </div>
+
+//             </div>
+
+//             {/* Body */}
+
+//             <main className="mx-auto max-w-7xl px-4 py-10">
+
+//                 {/* Main Views */}
+
+//                 {view === "upload" && (
+
+//                     <div className="grid gap-10 lg:grid-cols-12">
+
+//                         <div className="lg:col-span-9">
+
+//                             <DropZone
+//                                 onFile={handleFile}
+//                                 error={error}
+//                             />
+
+//                         </div>
+
+//                         <aside className="lg:col-span-3">
+
+//                             <div className="card bg-base-100 shadow-xl">
+
+//                                 <div className="card-body">
+
+//                                     <h2 className="card-title">
+
+//                                         Recent Uploads
+
+//                                     </h2>
+
+//                                     {history.length === 0 ? (
+
+//                                         <p className="text-sm text-base-content/50">
+
+//                                             No documents uploaded yet.
+
+//                                         </p>
+
+//                                     ) : (
+
+//                                         <div className="space-y-2">
+
+//                                             {history.map((h, i) => (
+
+//                                                 <div
+//                                                     key={i}
+//                                                     className="flex items-center justify-between rounded-lg border border-base-300 p-2"
+//                                                 >
+
+//                                                     <div>
+
+//                                                         <div className="font-medium">
+
+//                                                             {h.name}
+
+//                                                         </div>
+
+//                                                         <div className="text-xs text-base-content/50">
+
+//                                                             {h.type}
+
+//                                                         </div>
+
+//                                                     </div>
+
+//                                                     <div className="badge badge-success">
+
+//                                                         ✓
+
+//                                                     </div>
+
+//                                                 </div>
+//                                             ))}
+
+//                                         </div>
+//                                     )}
+
+//                                 </div>
+
+//                             </div>
+
+//                         </aside>
+
+//                     </div>
+//                 )}
+
+//                 {view === "processing" &&
+//                     files.length > 0 && (
+
+//                         <ProcessingView
+//                             files={files}
+//                             stage={stage}
+//                         />
+//                     )}
+
+//                 {view === "results" &&
+//                     result && (
+
+//                         <ResultsView
+//                             result={result}
+//                             onReset={reset}
+//                         />
+//                     )}
+
+//                 <dialog
+//                     className={`modal ${searchOpen ? "modal-open" : ""
+//                         }`}
+//                 >
+
+//                     <div className="modal-box max-w-4xl">
+
+//                         <div className="flex items-center justify-between">
+
+//                             <h3 className="text-xl font-bold">
+
+//                                 AI Resume Search
+
+//                             </h3>
+
+//                             <button
+//                                 className="btn btn-sm btn-circle"
+//                                 onClick={() =>
+//                                     setSearchOpen(false)
+//                                 }
+//                             >
+//                                 ✕
+//                             </button>
+
+//                         </div>
+
+//                         <div className="mt-5 flex gap-3">
+
+//                             <input
+//                                 type="text"
+//                                 placeholder="Find React Django developers..."
+//                                 className="input input-bordered w-full"
+//                                 value={searchQuery}
+//                                 onChange={(e) =>
+//                                     setSearchQuery(e.target.value)
+//                                 }
+//                             />
+
+//                             <button
+//                                 className="btn btn-primary"
+//                                 onClick={handleSemanticSearch}
+//                             >
+//                                 Search
+//                             </button>
+
+//                         </div>
+
+//                         <div className="mt-6 space-y-4">
+
+//                             {searchResults?.metadatas?.[0]?.map(
+//                                 (item, index) => (
+
+//                                     <div
+//                                         key={index}
+//                                         className="card border border-base-300 bg-base-100 shadow-lg"
+//                                     >
+
+//                                         <div className="card-body">
+
+//                                             <div className="flex items-center justify-between">
+
+//                                                 <h2 className="card-title">
+
+//                                                     {item.file_name}
+
+//                                                 </h2>
+
+//                                                 <div className="badge badge-primary">
+
+//                                                     Match
+
+//                                                 </div>
+
+//                                             </div>
+
+//                                             <div className="mt-2 flex flex-wrap gap-2">
+
+//                                                 {(item.skills || []).map(
+//                                                     (skill, idx) => (
+
+//                                                         <div
+//                                                             key={idx}
+//                                                             className="badge badge-outline"
+//                                                         >
+//                                                             {skill}
+//                                                         </div>
+//                                                     )
+//                                                 )}
+
+//                                             </div>
+
+//                                         </div>
+
+//                                     </div>
+//                                 )
+//                             )}
+
+//                         </div>
+
+//                     </div>
+
+//                 </dialog>
+
+//             </main>
+
+//         </div>
+//     );
+// }
+
+
 import { useState, useRef, useCallback, useEffect } from "react";
 import axios from "axios";
 
 // ============================================================================
-// Document Intelligence Dashboard
-// Stack: React + Tailwind + daisyUI
-// ----------------------------------------------------------------------------
-// Wire this to your Django backend by replacing `mockExtract()` with a real
-// fetch() to your /api/documents/extract endpoint.
+// Config
 // ============================================================================
 
-const ACCEPTED_TYPES = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-];
 const ACCEPTED_EXT = [".pdf", ".doc", ".docx"];
 const MAX_SIZE_MB = 25;
 
-// ---- Mock extraction (replace with API call) -------------------------------
+// ============================================================================
+// Helpers
+// ============================================================================
 
-
-// ---- Helpers ---------------------------------------------------------------
 const fmtBytes = (b) => {
+  if (!b || b === 0) return "—";
   if (b < 1024) return `${b} B`;
   if (b < 1024 ** 2) return `${(b / 1024).toFixed(1)} KB`;
   return `${(b / 1024 ** 2).toFixed(2)} MB`;
@@ -34,12 +966,6 @@ const toCSV = (result) => {
   result.keyFields.forEach((f) =>
     lines.push(`"${f.label}","${f.value}",${f.confidence}`)
   );
-  result.tables.forEach((t) => {
-    lines.push("");
-    lines.push(`# ${t.name}`);
-    lines.push(t.columns.map((c) => `"${c}"`).join(","));
-    t.rows.forEach((r) => lines.push(r.map((c) => `"${c}"`).join(",")));
-  });
   lines.push("");
   lines.push("# Entities");
   lines.push("type,text,count");
@@ -59,524 +985,451 @@ const download = (filename, content, mime) => {
   URL.revokeObjectURL(url);
 };
 
+const PIPELINE_STAGES = [
+  { key: "Uploading",              label: "Uploading files",          desc: "Transferring your documents to the server" },
+  { key: "Running OCR",            label: "Running OCR",              desc: "Extracting text from pages" },
+  { key: "Generating AI Analysis", label: "Generating AI analysis",   desc: "Classifying document type and extracting key fields" },
+  { key: "Generating Embeddings",  label: "Generating embeddings",    desc: "Building semantic vectors for search" },
+  { key: "Saving Document",        label: "Saving to database",       desc: "Persisting document and metadata" },
+];
+
 // ============================================================================
-// Components
+// Logo
 // ============================================================================
 
 function Logo() {
   return (
-    <div className="flex items-center gap-2.5">
-      <div className="grid h-9 w-9 place-items-center rounded-lg bg-neutral text-neutral-content">
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2">
-          <path d="M5 3h9l5 5v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
-          <path d="M14 3v5h5" />
-          <path d="M8 13h8M8 17h5" />
-        </svg>
+    <div className="flex items-center gap-3">
+      <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-content text-lg font-bold tracking-tight select-none">
+        D
       </div>
-      <div className="leading-tight">
-        <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-base-content/60">
-          Doc Intel
+      <div>
+        <div className="text-base font-bold leading-none tracking-tight">Doculens</div>
+        {/* "Enterprise AI Search" — the product tagline */}
+        <div className="text-[10px] font-mono tracking-widest text-base-content/40 uppercase mt-0.5">
+          Enterprise AI Search
         </div>
-        <div className="font-semibold tracking-tight">Dashboard</div>
       </div>
     </div>
   );
 }
 
-function Stat({ label, value, hint }) {
-  return (
-    <div className="rounded-xl border border-base-300 bg-base-100 p-4">
-      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-base-content/50">
-        {label}
-      </div>
-      <div className="mt-1 text-2xl font-semibold tracking-tight">{value}</div>
-      {hint && <div className="mt-1 text-xs text-base-content/60">{hint}</div>}
-    </div>
-  );
-}
-
-function ConfidenceBar({ value }) {
-  const pct = Math.round(value * 100);
-  const color =
-    pct >= 95 ? "bg-success" : pct >= 85 ? "bg-warning" : "bg-error";
-  return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-base-300">
-        <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="font-mono text-[11px] text-base-content/60">{pct}%</span>
-    </div>
-  );
-}
+// ============================================================================
+// DropZone
+// ============================================================================
 
 function DropZone({ onFile, error }) {
-  const [drag, setDrag] = useState(false);
   const inputRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
 
-  const handle = (file) => {
-    if (!file) return;
-    const ext = "." + file.name.split(".").pop().toLowerCase();
-    if (!ACCEPTED_EXT.includes(ext)) {
-      onFile(null, `Unsupported file type. Use ${ACCEPTED_EXT.join(", ")}`);
+  const handle = (selectedFiles) => {
+    const validFiles = [];
+    for (const file of selectedFiles) {
+      const ext = "." + file.name.split(".").pop().toLowerCase();
+      if (!ACCEPTED_EXT.includes(ext)) continue;
+      if (file.size > MAX_SIZE_MB * 1024 * 1024) continue;
+      validFiles.push(file);
+    }
+    if (validFiles.length === 0) {
+      onFile(null, "No valid files. Accepted: PDF, DOC, DOCX · Max 25 MB each.");
       return;
     }
-    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      onFile(null, `File exceeds ${MAX_SIZE_MB}MB limit`);
-      return;
-    }
-    onFile(file, null);
+    onFile(validFiles, null);
+  };
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    handle(Array.from(e.dataTransfer.files));
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
-      <div className="mb-8 text-center">
-        <div className="font-mono text-[11px] uppercase tracking-[0.25em] text-base-content/50">
-          Step 01 — Upload
-        </div>
-        <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">
-          Turn documents into{" "}
-          <span className="italic text-primary">structured data</span>
-        </h1>
-        <p className="mx-auto mt-3 max-w-xl text-base-content/60">
-          Drop an invoice, contract, or report. We extract key fields, tables,
-          and entities — ready to export as CSV or JSON.
-        </p>
-      </div>
-
+    <div className="space-y-3">
       <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDrag(true);
-        }}
-        onDragLeave={() => setDrag(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDrag(false);
-          handle(e.dataTransfer.files?.[0]);
-        }}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
-        className={`group relative cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed bg-base-100 px-8 py-16 text-center transition-all ${drag
-          ? "border-primary bg-primary/5 scale-[1.01]"
-          : "border-base-300 hover:border-primary/60 hover:bg-base-200/40"
-          }`}
+        className={`
+          group cursor-pointer rounded-2xl border-2 border-dashed p-20 text-center
+          transition-all duration-200 bg-base-100
+          ${dragging
+            ? "border-primary bg-primary/5 scale-[1.01]"
+            : "border-base-300 hover:border-primary hover:bg-base-200/60"
+          }
+        `}
       >
         <input
           ref={inputRef}
           type="file"
-          accept={ACCEPTED_EXT.join(",")}
+          multiple
           className="hidden"
-          onChange={(e) => handle(e.target.files?.[0])}
+          accept={ACCEPTED_EXT.join(",")}
+          onChange={(e) => handle(Array.from(e.target.files))}
         />
 
-        {/* decorative grid */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              "linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)",
-            backgroundSize: "32px 32px",
-          }}
-        />
-
-        <div className="relative">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-neutral text-neutral-content shadow-lg transition-transform group-hover:-translate-y-1">
-            <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 3v12m0-12 4 4m-4-4-4 4" />
-              <path d="M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
-            </svg>
-          </div>
-          <div className="mt-5 text-lg font-medium">
-            Drop your document here, or{" "}
-            <span className="text-primary underline underline-offset-4">
-              browse
-            </span>
-          </div>
-          <div className="mt-2 font-mono text-xs text-base-content/50">
-            PDF · DOC · DOCX  ·  up to {MAX_SIZE_MB}MB
-          </div>
+        {/* Upload icon — SVG so it inherits theme */}
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-base-300 bg-base-200 group-hover:border-primary/40 group-hover:bg-primary/5 transition-colors">
+          <svg className="h-6 w-6 text-base-content/40 group-hover:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+          </svg>
         </div>
+
+        <p className="text-lg font-semibold text-base-content">
+          Drop documents here, or <span className="text-primary">browse</span>
+        </p>
+        {/* Tells the user exactly what's accepted and the size cap */}
+        <p className="mt-1.5 text-sm text-base-content/50">
+          Accepts PDF, DOC, DOCX · Up to {MAX_SIZE_MB} MB per file · Multiple files supported
+        </p>
       </div>
 
       {error && (
-        <div className="alert alert-error mt-4">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <div className="alert alert-error rounded-xl border-0 text-sm">
+          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" /></svg>
           <span>{error}</span>
         </div>
       )}
+    </div>
+  );
+}
 
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-        <span className="font-mono text-xs text-base-content/50">
-          or try a sample →
-        </span>
-        {[
-          { name: "sample-invoice.pdf", type: "Invoice" },
-          { name: "sample-contract.docx", type: "Contract" },
-          { name: "sample-report.pdf", type: "Report" },
-        ].map((s) => (
-          <button
-            key={s.name}
-            onClick={() => {
-              const fake = new File(["sample"], s.name, {
-                type: "application/pdf",
-              });
-              Object.defineProperty(fake, "size", { value: 184320 });
-              onFile(fake, null);
-            }}
-            className="btn btn-sm btn-outline rounded-full"
-          >
-            {s.type}
-          </button>
-        ))}
-      </div>
+// ============================================================================
+// ProcessingView
+// ============================================================================
 
-      <div className="mx-auto mt-12 grid max-w-2xl grid-cols-3 gap-3">
-        {[
-          ["01", "OCR + parse"],
-          ["02", "AI extract"],
-          ["03", "Export"],
-        ].map(([n, t]) => (
-          <div key={n} className="rounded-xl border border-base-300 p-3 text-center">
-            <div className="font-mono text-[10px] text-base-content/50">{n}</div>
-            <div className="mt-1 text-sm font-medium">{t}</div>
+function ProcessingView({ files, stage }) {
+  const currentIdx = PIPELINE_STAGES.findIndex((s) => s.key === stage);
+  const pct = currentIdx === -1 ? 10 : Math.round(((currentIdx + 1) / PIPELINE_STAGES.length) * 100);
+  const currentStage = PIPELINE_STAGES[currentIdx] || PIPELINE_STAGES[0];
+
+  return (
+    <div className="mx-auto max-w-lg">
+      <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="card-body gap-6">
+
+          {/* Header — what's being processed */}
+          <div>
+            <p className="font-mono text-[10px] tracking-widest text-base-content/40 uppercase mb-1">Processing</p>
+            <h2 className="text-xl font-bold text-base-content">
+              {files.length} {files.length === 1 ? "document" : "documents"}
+            </h2>
+            {/* Show the actual filenames so the user knows which files are in flight */}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {files.map((f, i) => (
+                <span key={i} className="badge badge-ghost badge-sm font-mono text-[10px] max-w-[180px] truncate">
+                  {f.name}
+                </span>
+              ))}
+            </div>
           </div>
-        ))}
+
+          {/* Progress bar */}
+          <div>
+            <div className="mb-2 flex justify-between text-xs text-base-content/50">
+              {/* Current stage label */}
+              <span className="font-medium text-base-content">{currentStage.label}</span>
+              <span className="font-mono">{pct}%</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-base-300 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            {/* What this step actually does — helpful context */}
+            <p className="mt-2 text-xs text-base-content/50">{currentStage.desc}</p>
+          </div>
+
+          {/* Pipeline steps — visual checklist */}
+          <div className="space-y-2">
+            {PIPELINE_STAGES.map((s, i) => {
+              const done = i < currentIdx;
+              const active = i === currentIdx;
+              return (
+                <div key={s.key} className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${active ? "bg-primary/5 border border-primary/20" : "border border-transparent"}`}>
+                  <div className={`h-5 w-5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors
+                    ${done ? "bg-success text-success-content" : active ? "bg-primary text-primary-content" : "bg-base-300 text-base-content/30"}`}>
+                    {done ? "✓" : i + 1}
+                  </div>
+                  <span className={`text-sm transition-colors ${done ? "text-base-content/40 line-through" : active ? "font-medium text-base-content" : "text-base-content/40"}`}>
+                    {s.label}
+                  </span>
+                  {active && <span className="loading loading-dots loading-xs ml-auto text-primary" />}
+                </div>
+              );
+            })}
+          </div>
+
+        </div>
       </div>
     </div>
   );
 }
 
-function ProcessingView({ file, stage }) {
-  const stages = [
-    { key: "upload", label: "Uploading" },
-    { key: "ocr", label: "Running OCR" },
-    { key: "extract", label: "Extracting fields" },
-    { key: "done", label: "Finalizing" },
-  ];
-  const idx = stages.findIndex((s) => s.key === stage);
+// ============================================================================
+// ResultsView
+// ============================================================================
 
+function ResultsView({ result, onReset }) {
   return (
-    <div className="mx-auto w-full max-w-xl py-16">
-      <div className="rounded-2xl border border-base-300 bg-base-100 p-8">
-        <div className="flex items-center gap-4">
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-neutral text-neutral-content">
-            <span className="loading loading-spinner loading-md" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-medium">{file.name}</div>
-            <div className="font-mono text-xs text-base-content/50">
-              {fmtBytes(file.size)}
+    <div className="space-y-5">
+
+      {/* ── Header card ── */}
+      <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="card-body">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] tracking-widest text-base-content/40 uppercase mb-1">
+                Analysis complete
+              </p>
+              {/* Primary identifier — the document filename */}
+              <h2 className="text-2xl font-bold text-base-content leading-tight truncate">
+                {result.fileName}
+              </h2>
+              {/* Secondary metadata: document classification · page count · file size */}
+              <p className="mt-1 text-sm text-base-content/50">
+                {result.docType}
+                <span className="mx-2 text-base-content/20">·</span>
+                {result.pages} {result.pages === 1 ? "file" : "files"} uploaded
+                <span className="mx-2 text-base-content/20">·</span>
+                {fmtBytes(result.fileSize)}
+                {/* Note: fileSize is 0 from the API; fmtBytes shows "—" gracefully */}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <button
+                className="btn btn-outline btn-sm gap-1.5"
+                onClick={() => download("report.json", JSON.stringify(result, null, 2), "application/json")}
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                JSON
+              </button>
+              <button
+                className="btn btn-primary btn-sm gap-1.5"
+                onClick={() => download("report.csv", toCSV(result), "text/csv")}
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                CSV
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={onReset}>
+                ← New upload
+              </button>
             </div>
           </div>
         </div>
+      </div>
 
-        <ul className="mt-8 space-y-3">
-          {stages.map((s, i) => {
-            const done = i < idx;
-            const active = i === idx;
-            return (
-              <li key={s.key} className="flex items-center gap-3">
-                <div
-                  className={`grid h-6 w-6 place-items-center rounded-full border ${done
-                    ? "border-success bg-success text-success-content"
-                    : active
-                      ? "border-primary"
-                      : "border-base-300"
-                    }`}
-                >
-                  {done ? (
-                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7" /></svg>
-                  ) : active ? (
-                    <span className="loading loading-spinner loading-xs" />
-                  ) : (
-                    <span className="font-mono text-[10px] text-base-content/40">
-                      {i + 1}
+      {/* ── Stats strip ── */}
+      {/* Confidence = overall AI extraction confidence · Fields = extracted key fields · Entities = named entities found */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          {
+            label: "AI Confidence",
+            value: `${Math.round(result.confidence * 100)}%`,
+            desc: "Overall extraction accuracy",
+            accent: "text-success",
+          },
+          {
+            label: "Key fields",
+            value: result.keyFields.length,
+            desc: "Structured fields extracted",
+            accent: "text-primary",
+          },
+          {
+            label: "Entities",
+            value: result.entities.length,
+            desc: "Named entities detected",
+            accent: "text-base-content",
+          },
+        ].map((s) => (
+          <div key={s.label} className="card bg-base-100 border border-base-300 shadow-sm">
+            <div className="card-body py-4 px-5">
+              <p className="text-[11px] font-mono tracking-widest uppercase text-base-content/40">{s.label}</p>
+              <p className={`text-3xl font-bold mt-1 ${s.accent}`}>{s.value}</p>
+              {/* Explains what this number means so users don't have to guess */}
+              <p className="text-[11px] text-base-content/40 mt-0.5">{s.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Key fields table ── */}
+      <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="card-body">
+          <div className="mb-4">
+            <h2 className="font-bold text-base-content">Extracted fields</h2>
+            {/* What this section is: structured data the AI pulled from the document */}
+            <p className="text-xs text-base-content/50 mt-0.5">Structured information identified by the AI model</p>
+          </div>
+
+          {result.keyFields.length === 0 ? (
+            <p className="text-sm text-base-content/40 py-6 text-center">No fields extracted.</p>
+          ) : (
+            <div className="overflow-x-auto -mx-2">
+              <table className="table table-sm">
+                <thead>
+                  <tr className="border-b border-base-300">
+                    <th className="text-xs font-mono tracking-widest uppercase text-base-content/40 font-normal">Field</th>
+                    <th className="text-xs font-mono tracking-widest uppercase text-base-content/40 font-normal">Value</th>
+                    {/* Confidence: how certain the model is about this extraction (0–100%) */}
+                    <th className="text-xs font-mono tracking-widest uppercase text-base-content/40 font-normal text-right">Confidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.keyFields.map((field) => {
+                    const pct = Math.round(field.confidence * 100);
+                    return (
+                      <tr key={field.label} className="border-b border-base-200 last:border-0">
+                        <td className="py-3 font-medium text-sm text-base-content/70 whitespace-nowrap">{field.label}</td>
+                        <td className="py-3 text-sm text-base-content max-w-xs">{field.value}</td>
+                        <td className="py-3 text-right">
+                          <div className="inline-flex items-center gap-2">
+                            <div className="w-16 h-1 rounded-full bg-base-300 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${pct >= 90 ? "bg-success" : pct >= 70 ? "bg-warning" : "bg-error"}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-mono text-base-content/60 w-8 text-right">{pct}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Entities ── */}
+      {result.entities.length > 0 && (
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body">
+            <div className="mb-4">
+              <h2 className="font-bold text-base-content">Named entities</h2>
+              {/* Named entity recognition (NER): people, orgs, locations, dates, skills, etc. found in the doc */}
+              <p className="text-xs text-base-content/50 mt-0.5">People, organisations, skills, dates and locations detected via NER</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {result.entities.map((e, index) => (
+                <div key={index} className="inline-flex items-center gap-1.5 rounded-lg border border-base-300 bg-base-200/60 px-3 py-1.5">
+                  {/* Entity type label (e.g. PERSON, ORG, SKILL) */}
+                  <span className="font-mono text-[9px] tracking-widest uppercase text-base-content/40">{e.type}</span>
+                  <span className="text-sm font-medium text-base-content">{e.text}</span>
+                  {/* Count: how many times this entity appears in the document */}
+                  {e.count > 1 && (
+                    <span className="ml-1 rounded-full bg-base-300 px-1.5 py-0.5 text-[10px] font-mono text-base-content/50">
+                      ×{e.count}
                     </span>
                   )}
                 </div>
-                <span
-                  className={
-                    active
-                      ? "font-medium"
-                      : done
-                        ? "text-base-content/60"
-                        : "text-base-content/40"
-                  }
-                >
-                  {s.label}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
-function ResultsView({ result, onReset }) {
-  const [tab, setTab] = useState("fields");
-  const [query, setQuery] = useState("");
+// ============================================================================
+// Search Modal
+// ============================================================================
 
-  const filteredFields = result.keyFields.filter((f) =>
-    (f.label + f.value).toLowerCase().includes(query.toLowerCase())
-  );
-
-  const entityColors = {
-    ORG: "badge-primary",
-    PERSON: "badge-secondary",
-    DATE: "badge-accent",
-    MONEY: "badge-success",
-    LOCATION: "badge-warning",
-  };
-
+function SearchModal({ open, onClose, query, onQueryChange, onSearch, loading, results }) {
   return (
-    <div className="space-y-6">
-      {/* Header bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-base-300 bg-base-100 p-4">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-success/15 text-success">
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M5 13l4 4L19 7" /></svg>
-          </div>
+    <dialog className={`modal ${open ? "modal-open" : ""}`}>
+      <div className="modal-box max-w-3xl p-0 overflow-hidden rounded-2xl border border-base-300">
+
+        {/* Modal header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-base-300 bg-base-100">
           <div>
-            <div className="font-medium">{result.fileName}</div>
-            <div className="font-mono text-xs text-base-content/50">
-              {result.docType} · {result.pages} pages · {fmtBytes(result.fileSize)} · {(result.processingMs / 1000).toFixed(1)}s
-            </div>
+            <h3 className="font-bold text-base-content">Semantic document search</h3>
+            {/* What this does: vector-based search across all uploaded documents */}
+            <p className="text-xs text-base-content/50 mt-0.5">Find relevant documents using natural language — powered by AI embeddings</p>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            className="btn btn-sm btn-outline"
-            onClick={() =>
-              download(
-                result.fileName.replace(/\.[^.]+$/, "") + ".json",
-                JSON.stringify(result, null, 2),
-                "application/json"
-              )
-            }
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" /></svg>
-            JSON
-          </button>
-          <button
-            className="btn btn-sm btn-primary"
-            onClick={() =>
-              download(
-                result.fileName.replace(/\.[^.]+$/, "") + ".csv",
-                toCSV(result),
-                "text/csv"
-              )
-            }
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" /></svg>
-            CSV
-          </button>
-          <button className="btn btn-sm btn-ghost" onClick={onReset}>
-            New
+          <button className="btn btn-ghost btn-sm btn-circle" onClick={onClose} aria-label="Close search">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-      </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat
-          label="Doc type"
-          value={result.docType}
-          hint="Classified by model"
-        />
-        <Stat
-          label="Confidence"
-          value={`${Math.round(result.confidence * 100)}%`}
-          hint="Overall extraction"
-        />
-        <Stat
-          label="Fields found"
-          value={result.keyFields.length}
-          hint={`${result.tables.length} tables`}
-        />
-        <Stat
-          label="Entities"
-          value={result.entities.length}
-          hint="Named entities"
-        />
-      </div>
-
-      {/* Main layout */}
-      <div className="grid gap-4 lg:grid-cols-12">
-        {/* Left: preview */}
-        <aside className="lg:col-span-4">
-          <div className="rounded-2xl border border-base-300 bg-base-100 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-base-content/50">
-                Preview
-              </div>
-              <span className="badge badge-sm badge-ghost font-mono">
-                p. 1 / {result.pages}
-              </span>
+        {/* Search input */}
+        <div className="px-6 py-4 border-b border-base-300 bg-base-100">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 15.803a7.5 7.5 0 0 0 10.607 0z" /></svg>
+              {/* Placeholder shows a usage example; adjust to your actual document domain */}
+              <input
+                type="text"
+                placeholder='e.g. "React developer with Node.js experience"'
+                className="input input-bordered w-full pl-10 text-sm"
+                value={query}
+                onChange={(e) => onQueryChange(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && onSearch()}
+              />
             </div>
-            <div className="aspect-[1/1.3] overflow-hidden rounded-lg border border-base-300 bg-base-200/50 p-6">
-              <div className="space-y-2">
-                <div className="h-3 w-1/2 rounded bg-base-300" />
-                <div className="h-2 w-3/4 rounded bg-base-300/70" />
-                <div className="h-2 w-2/3 rounded bg-base-300/70" />
-                <div className="mt-4 h-2 w-full rounded bg-base-300/50" />
-                <div className="h-2 w-full rounded bg-base-300/50" />
-                <div className="h-2 w-5/6 rounded bg-base-300/50" />
-                <div className="mt-4 grid grid-cols-3 gap-1">
-                  {Array.from({ length: 9 }).map((_, i) => (
-                    <div key={i} className="h-3 rounded bg-base-300/40" />
-                  ))}
-                </div>
-                <div className="mt-4 h-2 w-1/3 rounded bg-base-300/50" />
-                <div className="h-2 w-1/4 rounded bg-base-300/50" />
-                <div className="mt-6 h-8 w-24 rounded bg-primary/20" />
-              </div>
-            </div>
-            <div className="mt-3 text-xs text-base-content/50">
-              Replace with real page-render from your backend (e.g. pdf.js thumbnails).
-            </div>
+            <button className="btn btn-primary gap-1.5" onClick={onSearch} disabled={loading}>
+              {loading ? <span className="loading loading-spinner loading-xs" /> : (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 15.803a7.5 7.5 0 0 0 10.607 0z" /></svg>
+              )}
+              Search
+            </button>
           </div>
-        </aside>
+        </div>
 
-        {/* Right: tabbed data */}
-        <section className="lg:col-span-8">
-          <div className="rounded-2xl border border-base-300 bg-base-100">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-300 px-4 py-3">
-              <div role="tablist" className="tabs tabs-boxed bg-base-200">
-                <button
-                  role="tab"
-                  className={`tab ${tab === "fields" ? "tab-active" : ""}`}
-                  onClick={() => setTab("fields")}
-                >
-                  Key Fields
-                </button>
-                <button
-                  role="tab"
-                  className={`tab ${tab === "tables" ? "tab-active" : ""}`}
-                  onClick={() => setTab("tables")}
-                >
-                  Tables
-                </button>
-                <button
-                  role="tab"
-                  className={`tab ${tab === "entities" ? "tab-active" : ""}`}
-                  onClick={() => setTab("entities")}
-                >
-                  Entities
-                </button>
-              </div>
-              {tab === "fields" && (
-                <label className="input input-bordered input-sm flex w-full items-center gap-2 md:max-w-xs">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4 opacity-60" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-                  <input
-                    type="text"
-                    placeholder="Filter fields…"
-                    className="grow"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                </label>
-              )}
-            </div>
-
-            <div className="p-4">
-              {tab === "fields" && (
-                <div className="overflow-x-auto">
-                  <table className="table table-sm">
-                    <thead>
-                      <tr className="text-base-content/60">
-                        <th className="font-mono text-[10px] uppercase tracking-wider">
-                          Field
-                        </th>
-                        <th className="font-mono text-[10px] uppercase tracking-wider">
-                          Value
-                        </th>
-                        <th className="font-mono text-[10px] uppercase tracking-wider">
-                          Confidence
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredFields.map((f) => (
-                        <tr key={f.label} className="hover">
-                          <td className="text-base-content/70">{f.label}</td>
-                          <td className="font-medium">{f.value}</td>
-                          <td>
-                            <ConfidenceBar value={f.confidence} />
-                          </td>
-                        </tr>
-                      ))}
-                      {filteredFields.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={3}
-                            className="py-8 text-center text-base-content/50"
-                          >
-                            No fields match “{query}”
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {tab === "tables" &&
-                result.tables.map((t) => (
-                  <div key={t.name} className="mb-6 last:mb-0">
-                    <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-base-content/50">
-                      {t.name}
+        {/* Results */}
+        <div className="max-h-[50vh] overflow-y-auto px-6 py-4 space-y-3 bg-base-200/30">
+          {results?.metadatas?.[0]?.length > 0 ? (
+            <>
+              {/* Result count — how many documents matched */}
+              <p className="text-xs font-mono text-base-content/40 uppercase tracking-widest pb-1">
+                {results.metadatas[0].length} {results.metadatas[0].length === 1 ? "result" : "results"} found
+              </p>
+              {results.metadatas[0].map((item, index) => (
+                <div key={index} className="card bg-base-100 border border-base-300 shadow-sm">
+                  <div className="card-body py-4 px-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        {/* Document filename — primary identifier in search results */}
+                        <p className="font-semibold text-sm text-base-content truncate">{item.file_name}</p>
+                        {/* Relevance rank — position in the semantic similarity ranking */}
+                        <p className="text-xs text-base-content/40 mt-0.5 font-mono">Match #{index + 1}</p>
+                      </div>
+                      <div className="badge badge-primary badge-sm shrink-0">Relevant</div>
                     </div>
-                    <div className="overflow-x-auto rounded-lg border border-base-300">
-                      <table className="table table-sm">
-                        <thead className="bg-base-200">
-                          <tr>
-                            {t.columns.map((c) => (
-                              <th key={c}>{c}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {t.rows.map((r, i) => (
-                            <tr key={i} className="hover">
-                              {r.map((c, j) => (
-                                <td key={j} className={j === 0 ? "" : "font-mono text-sm"}>
-                                  {c}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+
+                    {/* Skills extracted from this document — e.g. from a resume */}
+                    {item.skills?.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {item.skills.map((skill, idx) => (
+                          <span key={idx} className="badge badge-outline badge-sm font-mono text-[10px]">{skill}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))}
-
-              {tab === "entities" && (
-                <div className="flex flex-wrap gap-2">
-                  {result.entities.map((e, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 rounded-lg border border-base-300 px-3 py-2"
-                    >
-                      <span
-                        className={`badge badge-sm ${entityColors[e.type] || "badge-ghost"} font-mono text-[10px]`}
-                      >
-                        {e.type}
-                      </span>
-                      <span className="text-sm font-medium">{e.text}</span>
-                      <span className="font-mono text-[10px] text-base-content/50">
-                        ×{e.count}
-                      </span>
-                    </div>
-                  ))}
                 </div>
-              )}
+              ))}
+            </>
+          ) : results !== null && !loading ? (
+            <div className="py-10 text-center text-sm text-base-content/40">
+              No matching documents found. Try a different query.
             </div>
-          </div>
-        </section>
+          ) : !loading ? (
+            <div className="py-10 text-center text-sm text-base-content/40">
+              {/* Empty state: user hasn't searched yet */}
+              Search across all uploaded documents using natural language.
+            </div>
+          ) : null}
+        </div>
+
       </div>
-    </div>
+      <form method="dialog" className="modal-backdrop" onClick={onClose}><button>close</button></form>
+    </dialog>
   );
 }
 
@@ -585,306 +1438,228 @@ function ResultsView({ result, onReset }) {
 // ============================================================================
 
 export default function App() {
-  const [view, setView] = useState("upload"); // upload | processing | results
-  const [file, setFile] = useState(null);
-  const [stage, setStage] = useState("upload");
+  const [view, setView] = useState("upload");
+  const [files, setFiles] = useState([]);
+  const [stage, setStage] = useState("Uploading");
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [history, setHistory] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
-  const handleFile = useCallback((f, err) => {
-    if (err) {
-      setError(err);
-      return;
-    }
+  // ── Upload Handler ──────────────────────────────────────────────────────────
+
+  const handleFile = useCallback((selectedFiles, err) => {
+    if (err) { setError(err); return; }
     setError(null);
-    setFile(f);
+    setFiles(selectedFiles);
     setView("processing");
-    setStage("upload");
   }, []);
 
-  // Simulated processing pipeline
-  useEffect(() => {
-    if (view !== "processing" || !file) return;
-    let active = true;
-    const run = async () => {
+  // ── Semantic Search ─────────────────────────────────────────────────────────
 
-      const seq = ["upload", "ocr", "extract", "done"];
+  const handleSemanticSearch = async () => {
+    if (!searchQuery.trim()) return;
+    try {
+      setSearchLoading(true);
+      const response = await axios.post("http://127.0.0.1:8000/api/search/", { query: searchQuery });
+      console.log(response.data);
+      setSearchResults(response.data.results);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // ── Upload Pipeline ─────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (view !== "processing" || files.length === 0) return;
+    let active = true;
+
+    const run = async () => {
+      const seq = [
+        "Uploading",
+        "Running OCR",
+        "Generating AI Analysis",
+        "Generating Embeddings",
+        "Saving Document",
+      ];
 
       for (const s of seq) {
-
         if (!active) return;
-
         setStage(s);
-
-        await new Promise((r) => setTimeout(r, 500));
+        await new Promise((r) => setTimeout(r, 700));
       }
 
       try {
-
         const formData = new FormData();
-
-        formData.append("file", file);
+        files.forEach((file) => formData.append("files", file));
 
         const response = await axios.post(
           "http://127.0.0.1:8000/api/upload/",
           formData,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          }
+          { headers: { "Content-Type": "multipart/form-data" } }
         );
 
         const data = response.data;
-
-        const ai = data.ai_analysis;
+        const firstDoc = data.documents?.[0];
 
         const resultData = {
-
-          fileName: data.metadata.file_name,
-
-          fileSize: data.metadata.file_size,
-
-          pages: data.metadata.pages,
-
-          docType: data.metadata.doc_type,
-
+          fileName: firstDoc?.file_name || "Documents",
+          fileSize: 0, // API does not return file size; shown as "—"
+          pages: files.length,
+          docType: "PDF",
           confidence: 0.95,
-
           processingMs: 2000,
-
           keyFields: [
-
-            {
-              label: "Document Type",
-              value: ai.document_type,
-              confidence: 0.95,
-            },
-
-            {
-              label: "Summary",
-              value: ai.summary,
-              confidence: 0.92,
-            },
-
-            {
-              label: "Name",
-              value: ai.important_fields?.name || "N/A",
-              confidence: 0.95,
-            },
-
-            {
-              label: "Email",
-              value: ai.important_fields?.email || "N/A",
-              confidence: 0.95,
-            },
-
-            {
-              label: "Phone",
-              value: ai.important_fields?.phone || "N/A",
-              confidence: 0.95,
-            },
-
-            {
-              label: "Skills",
-              value: ai.important_fields?.skills?.join(", ") || "N/A",
-              confidence: 0.90,
-            },
-
-            {
-              label: "Organizations",
-              value: ai.important_fields?.organizations?.join(", ") || "N/A",
-              confidence: 0.90,
-            },
-
-            {
-              label: "Projects",
-              value: ai.important_fields?.projects?.join(", ") || "N/A",
-              confidence: 0.90,
-            },
+            { label: "Uploaded files",  value: files.length,                      confidence: 0.95 },
+            { label: "Summary",         value: firstDoc?.summary   || "N/A",      confidence: 0.92 },
+            { label: "Skills",          value: firstDoc?.skills?.join(", ") || "N/A", confidence: 0.90 },
           ],
-
           tables: [],
-
-          entities: [
-
-            ...(ai.important_fields?.name
-              ? [
-                {
-                  type: "PERSON",
-                  text: ai.important_fields.name,
-                  count: 1,
-                },
-              ]
-              : []),
-
-            ...(ai.important_fields?.email
-              ? [
-                {
-                  type: "EMAIL",
-                  text: ai.important_fields.email,
-                  count: 1,
-                },
-              ]
-              : []),
-
-            ...(ai.important_fields?.phone
-              ? [
-                {
-                  type: "PHONE",
-                  text: ai.important_fields.phone,
-                  count: 1,
-                },
-              ]
-              : []),
-
-            ...(ai.important_fields?.organizations || []).map((org) => ({
-              type: "ORG",
-              text: org,
-              count: 1,
-            })),
-          ],
+          entities: [],
         };
 
         setResult(resultData);
-
         setHistory((h) => [
-          {
-            name: file.name,
-            type: "PDF",
-            at: Date.now(),
-          },
+          ...files.map((file) => ({ name: file.name, type: "PDF", at: Date.now() })),
           ...h,
         ].slice(0, 6));
-
         setView("results");
 
       } catch (error) {
-
         console.error(error);
-
-        setError("Upload failed");
-
+        setError("Upload failed. Please check your connection and try again.");
         setView("upload");
       }
     };
-    run();
-    return () => {
-      active = false;
-    };
-  }, [view, file]);
 
-  const reset = () => {
-    setFile(null);
-    setResult(null);
-    setView("upload");
-  };
+    run();
+    return () => { active = false; };
+  }, [view, files]);
+
+  // ── Reset ───────────────────────────────────────────────────────────────────
+
+  const reset = () => { setFiles([]); setResult(null); setView("upload"); };
+
+  // ── UI ──────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-base-200/40 text-base-content">
-      {/* Top nav */}
-      <header className="sticky top-0 z-20 border-b border-base-300 bg-base-100/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-          <Logo />
-          <nav className="hidden items-center gap-1 md:flex">
-            <a className="btn btn-ghost btn-sm">Docs</a>
-            <a className="btn btn-ghost btn-sm">API</a>
-            <a className="btn btn-ghost btn-sm">Pricing</a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <div className="hidden font-mono text-[11px] text-base-content/50 md:block">
-              v0.1 · demo
-            </div>
-            <a
-              href="https://github.com"
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-sm btn-neutral"
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.36-3.88-1.36-.53-1.34-1.3-1.7-1.3-1.7-1.07-.73.08-.72.08-.72 1.18.08 1.8 1.21 1.8 1.21 1.05 1.79 2.76 1.27 3.43.97.11-.76.41-1.27.74-1.56-2.55-.29-5.24-1.27-5.24-5.66 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.17.92-.26 1.91-.39 2.89-.39.98 0 1.97.13 2.89.39 2.2-1.48 3.17-1.17 3.17-1.17.63 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.4-2.69 5.36-5.25 5.65.42.36.8 1.07.8 2.16v3.21c0 .31.21.67.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z" /></svg>
-              Code
-            </a>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-base-200">
 
-      {/* Body */}
-      <main className="mx-auto max-w-7xl px-4 py-10">
+      {/* ── Navbar ── */}
+      <div className="sticky top-0 z-20 border-b border-base-300 bg-base-100/90 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3">
+          <Logo />
+
+          <nav className="flex items-center gap-1">
+            {/* Nav items: expand as more routes are added */}
+            <button className="btn btn-ghost btn-sm text-base-content/60 hover:text-base-content">Dashboard</button>
+            <button className="btn btn-ghost btn-sm text-base-content/60 hover:text-base-content">Documents</button>
+
+            <div className="ml-2 w-px h-5 bg-base-300" />
+
+            {/* Single search entry point — opens the semantic search modal */}
+            <button
+              className="btn btn-primary btn-sm gap-2 ml-2"
+              onClick={() => setSearchOpen(true)}
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 15.803a7.5 7.5 0 0 0 10.607 0z" /></svg>
+              AI Search
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {/* ── Body ── */}
+      <main className="mx-auto max-w-7xl px-5 py-10">
+
+        {/* Upload view */}
         {view === "upload" && (
-          <div className="grid gap-10 lg:grid-cols-12">
-            <div className="lg:col-span-9">
+          <div className="grid gap-8 lg:grid-cols-12">
+            <div className="lg:col-span-8">
+              {/* Page heading */}
+              <div className="mb-6">
+                <p className="font-mono text-[10px] tracking-widest text-base-content/40 uppercase mb-1">Upload</p>
+                <h1 className="text-2xl font-bold text-base-content">Add documents</h1>
+                <p className="text-sm text-base-content/50 mt-1">
+                  Upload resumes, contracts or any document — the AI will extract fields, entities and build a searchable index.
+                </p>
+              </div>
               <DropZone onFile={handleFile} error={error} />
             </div>
-            <aside className="lg:col-span-3">
-              <div className="rounded-2xl border border-base-300 bg-base-100 p-5">
-                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-base-content/50">
-                  Recent
-                </div>
-                {history.length === 0 ? (
-                  <p className="mt-3 text-sm text-base-content/50">
-                    No documents yet. Upload one to get started.
-                  </p>
-                ) : (
-                  <ul className="mt-3 space-y-2">
-                    {history.map((h, i) => (
-                      <li
-                        key={i}
-                        className="flex items-center justify-between rounded-lg border border-base-300 p-2"
-                      >
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium">
-                            {h.name}
+
+            {/* Sidebar: recent uploads */}
+            <aside className="lg:col-span-4">
+              <div className="card bg-base-100 border border-base-300 shadow-sm">
+                <div className="card-body">
+                  <div className="mb-3">
+                    <h2 className="font-bold text-base-content text-sm">Recent uploads</h2>
+                    {/* Shows the last 6 documents processed in this session */}
+                    <p className="text-xs text-base-content/40 mt-0.5">Last 6 documents processed this session</p>
+                  </div>
+
+                  {history.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-base-200">
+                        <svg className="h-5 w-5 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9z" /></svg>
+                      </div>
+                      <p className="text-xs text-base-content/40">No uploads yet.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {history.map((h, i) => (
+                        <div key={i} className="flex items-center gap-3 rounded-xl border border-base-200 bg-base-200/40 px-3 py-2.5">
+                          <div className="h-8 w-8 shrink-0 rounded-lg bg-base-300 flex items-center justify-center">
+                            <svg className="h-4 w-4 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9z" /></svg>
                           </div>
-                          <div className="font-mono text-[10px] text-base-content/50">
-                            {h.type}
+                          <div className="min-w-0 flex-1">
+                            {/* Filename of the uploaded document */}
+                            <p className="text-xs font-medium text-base-content truncate">{h.name}</p>
+                            {/* Document type classification */}
+                            <p className="text-[10px] text-base-content/40 font-mono">{h.type}</p>
+                          </div>
+                          {/* Green check = successfully processed and indexed */}
+                          <div className="h-5 w-5 shrink-0 rounded-full bg-success/10 flex items-center justify-center">
+                            <svg className="h-3 w-3 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                           </div>
                         </div>
-                        <span className="badge badge-ghost badge-sm">✓</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-base-300 bg-neutral p-5 text-neutral-content">
-                <div className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-60">
-                  How it works
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <ol className="mt-3 space-y-2 text-sm">
-                  <li>
-                    <span className="font-mono text-[10px] opacity-60">01</span>{" "}
-                    Upload your document
-                  </li>
-                  <li>
-                    <span className="font-mono text-[10px] opacity-60">02</span>{" "}
-                    OCR + LLM extract structured data
-                  </li>
-                  <li>
-                    <span className="font-mono text-[10px] opacity-60">03</span>{" "}
-                    Review, edit, export as CSV / JSON
-                  </li>
-                </ol>
               </div>
             </aside>
           </div>
         )}
 
-        {view === "processing" && file && (
-          <ProcessingView file={file} stage={stage} />
+        {/* Processing view */}
+        {view === "processing" && files.length > 0 && (
+          <ProcessingView files={files} stage={stage} />
         )}
 
+        {/* Results view */}
         {view === "results" && result && (
           <ResultsView result={result} onReset={reset} />
         )}
+
       </main>
 
-      <footer className="mx-auto max-w-7xl px-4 pb-10 pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] text-base-content/50">
-          <div>© 2026 · Document Intelligence Dashboard</div>
-          <div>Built with Django · React · Tailwind · daisyUI</div>
-        </div>
-      </footer>
+      {/* ── Search Modal ── */}
+      <SearchModal
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
+        onSearch={handleSemanticSearch}
+        loading={searchLoading}
+        results={searchResults}
+      />
+
     </div>
   );
 }
