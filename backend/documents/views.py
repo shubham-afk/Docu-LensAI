@@ -5,27 +5,27 @@ from rest_framework import status
 from .models import Document
 from .serializers import DocumentSerializer
 
-from core.services.ai_service import analyze_document
-
+from core.services.ai_service import analyze_document, semantic_search
 import pdfplumber
+
+from core.services.embedding_service import generate_embedding
+
+from core.services.chroma_service import store_document_embedding
+
+from core.services.search_service import semantic_search
 
 
 class UploadDocumentView(APIView):
 
     def post(self, request):
 
-        uploaded_file = request.FILES.get("file")
+        uploaded_files = request.FILES.getlist("files") 
 
-        if not uploaded_file:
+        results = []
 
-            return Response(
-                {"error": "No file uploaded"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        for uploaded_file in uploaded_files:
 
-        extracted_text = ""
-
-        try:
+            extracted_text = ""
 
             with pdfplumber.open(uploaded_file) as pdf:
 
@@ -38,39 +38,85 @@ class UploadDocumentView(APIView):
                     if text:
                         extracted_text += text + "\n"
 
-            # AI ANALYSIS
-            ai_analysis = analyze_document(extracted_text)
-
-            # SAVE DOCUMENT
-            document = Document.objects.create(
-                file=uploaded_file,
-                extracted_text=extracted_text
+            ai_analysis = analyze_document(
+                extracted_text
             )
 
-            serializer = DocumentSerializer(document)
+            embedding = generate_embedding(
+                extracted_text
+            )
 
-            return Response({
+            document = Document.objects.create(
 
-                "message": "File processed successfully",
+                file=uploaded_file,
 
-                "document": serializer.data,
+                extracted_text=extracted_text,
 
-                "metadata": {
+                ai_summary=ai_analysis.get(
+                    "summary",
+                    ""
+                ),
+
+                document_type="PDF",
+
+                metadata_json=ai_analysis
+            )
+
+            store_document_embedding(
+
+                document.id,
+
+                extracted_text,
+
+                embedding,
+
+                {
                     "file_name": uploaded_file.name,
-                    "file_size": uploaded_file.size,
-                    "pages": total_pages,
-                    "doc_type": "PDF"
-                },
+                    "skills": ai_analysis.get(
+                        "important_fields",
+                        {}
+                    ).get(
+                        "skills",
+                        []
+                    )
+                }
+            )
 
-                "extracted_text": extracted_text[:3000],
+            results.append({
 
-                "ai_analysis": ai_analysis
+                "id": document.id,
 
+                "file_name": uploaded_file.name,
+
+                "skills": ai_analysis.get(
+                    "important_fields",
+                    {}
+                ).get(
+                    "skills",
+                    []
+                ),
+
+                "summary": ai_analysis.get(
+                    "summary",
+                    ""
+                )
             })
 
-        except Exception as e:
+        return Response({
+            "documents": results
+        })
 
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+
+class SemanticSearchView(APIView):
+
+    def post(self, request):
+
+        query = request.data.get("query")
+
+        if not query:
+
+            return Response({"error": "Query is required"}, status=400)
+
+        results = semantic_search(query)
+
+        return Response({"results": results})

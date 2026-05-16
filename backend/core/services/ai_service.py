@@ -2,6 +2,7 @@ import json
 
 from openai import OpenAI
 from django.conf import settings
+from documents.models import Document
 
 client = OpenAI(
     api_key=settings.GROQ_API_KEY,
@@ -69,3 +70,28 @@ Document:
             "sensitive_information": [],
             "raw_response": result
         }
+
+
+def semantic_search(query):
+    """
+    Perform semantic search on documents using AI to find relevant matches.
+    """
+    from django.db.models import Q
+    
+    if not query or not query.strip():
+        return []
+    
+    # Search documents by extracted text
+    documents = Document.objects.filter(
+        Q(extracted_text__icontains=query)
+    ).values('id', 'file', 'extracted_text')[:10]
+    
+    results = []
+    for doc in documents:
+        results.append({
+            "id": doc['id'],
+            "file": doc['file'],
+            "snippet": doc['extracted_text'][:500]
+        })
+    
+    return results
